@@ -1,26 +1,180 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --rice: #f3f5f2;
+  --plate: #ffffff;
+  --ink: #1c2420;
+  --muted: #56615b;
+  --line: #dce2de;
+  --leaf: #155e3b;
+  --leaf-deep: #0f4a2e;
+  --leaf-soft: #e6f1ea;
+  --turmeric: #e9a825;
+  --turmeric-soft: #fcf0d2;
+  --chilli: #b42318;
+  --chilli-soft: #fdecea;
+  --veg: #2e8b3e;
+  --nonveg: #8b3a1e;
+  --egg: #c9921a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-rice: var(--rice);
+  --color-plate: var(--plate);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-leaf: var(--leaf);
+  --color-leaf-deep: var(--leaf-deep);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-turmeric: var(--turmeric);
+  --color-turmeric-soft: var(--turmeric-soft);
+  --color-chilli: var(--chilli);
+  --color-chilli-soft: var(--chilli-soft);
+  --color-veg: var(--veg);
+  --color-nonveg: var(--nonveg);
+  --color-egg: var(--egg);
+  --font-sans: var(--font-anek);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--rice);
+  color: var(--ink);
+  font-family: var(--font-anek), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Signboard lettering: condensed width, heavy weight */
+.signboard {
+  font-variation-settings: "wdth" 75;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+}
+
+.condensed {
+  font-variation-settings: "wdth" 82;
+}
+
+.price {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dotted leader between a portion and its price, as on a printed menu board */
+.leader {
+  flex: 1;
+  min-width: 1.5rem;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-0.3em);
+}
+
+:focus-visible {
+  outline: 2px solid var(--turmeric);
+  outline-offset: 2px;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--plate);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  color: var(--ink);
+}
+
+.field::placeholder {
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+
+.field:focus {
+  border-color: var(--leaf);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--leaf) 18%, transparent);
+}
+
+.field[aria-invalid="true"] {
+  border-color: var(--chilli);
+}
+
+/* Buttons: one primary action per area, quiet for everything else, danger only for deletes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.4rem 0.85rem;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--leaf-deep);
+}
+
+.btn-quiet {
+  background: var(--plate);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.btn-danger {
+  background: var(--chilli);
+  color: #fff;
+}
+
+.btn-danger-outline {
+  background: var(--plate);
+  border-color: color-mix(in srgb, var(--chilli) 40%, var(--line));
+  color: var(--chilli);
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: var(--chilli-soft);
+}
+
+.btn-sm {
+  padding: 0.2rem 0.6rem;
+  font-size: 13px;
+}
+
+/* Toast and save bar slide in to show what just changed */
+@keyframes rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+.rise {
+  animation: rise 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }
