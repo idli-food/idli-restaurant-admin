@@ -105,6 +105,9 @@ export async function api<T = unknown>(
 
 export type GeoPoint = { type: "Point"; coordinates: [number, number] };
 
+// day: 0 = Monday … 6 = Sunday; times are "HH:MM" (end before start = past midnight)
+export type HotelSession = { day: number; start_time: string; end_time: string };
+
 export type Hotel = {
   id: number;
   name: string;
@@ -115,13 +118,14 @@ export type Hotel = {
   description: string | null;
   location: GeoPoint | null;
   location_link: string | null;
+  place_id: string | null;
   avatar: string | null;
   is_active: boolean;
   phone_verified: boolean;
   tags: number[];
   price_min: string | null;
   price_max: string | null;
-  hours: string | null;
+  sessions: HotelSession[];
   atmosphere: string | null;
   best_for: string | null;
   cuisines: string[];

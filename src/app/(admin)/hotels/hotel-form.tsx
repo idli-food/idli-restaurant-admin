@@ -1,13 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, type FieldErrors, type Hotel } from "@/lib/api";
+import { api, ApiError, type FieldErrors, type GeoPoint, type Hotel, type HotelSession } from "@/lib/api";
 import { useAdmin } from "../admin-context";
 
 type Props = {
   hotel?: Hotel;
   onSaved: (hotel: Hotel) => void;
 };
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// Backend returns "HH:MM:SS"; time inputs work in "HH:MM"
+const toFormSessions = (sessions: HotelSession[]) =>
+  sessions.map((s) => ({ ...s, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
 
 function initialForm(hotel?: Hotel) {
   return {
@@ -18,12 +24,13 @@ function initialForm(hotel?: Hotel) {
     email: hotel?.email ?? "",
     description: hotel?.description ?? "",
     location_link: hotel?.location_link ?? "",
+    place_id: hotel?.place_id ?? "",
     avatar: hotel?.avatar ?? "",
     is_active: hotel?.is_active ?? true,
     tags: hotel?.tags ?? [],
     price_min: hotel?.price_min ?? "",
     price_max: hotel?.price_max ?? "",
-    hours: hotel?.hours ?? "",
+    sessions: toFormSessions(hotel?.sessions ?? []),
     atmosphere: hotel?.atmosphere ?? "",
     best_for: hotel?.best_for ?? "",
     // Lists are edited as comma-separated text
@@ -59,6 +66,7 @@ export default function HotelForm({ hotel, onSaved }: Props) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [fetching, setFetching] = useState(false);
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
   const set = (key: keyof typeof form, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
@@ -78,6 +86,41 @@ export default function HotelForm({ hotel, onSaved }: Props) {
       notify(`Photo upload failed: ${(err as Error).message}`, "error");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function fetchFromLink() {
+    setFetching(true);
+    try {
+      const place = await api<{
+        place_id: string;
+        name: string;
+        address: string;
+        city: string;
+        phone_number: string | null;
+        location: GeoPoint;
+        location_link: string;
+        sessions: HotelSession[];
+        description: string | null;
+      }>("/hotel/admin/hotels/from-link", { method: "POST", body: { link: form.location_link } });
+      setForm((f) => ({
+        ...f,
+        place_id: place.place_id,
+        name: place.name,
+        address: place.address,
+        city: place.city,
+        phone_number: place.phone_number ?? "",
+        lat: String(place.location.coordinates[1]),
+        lon: String(place.location.coordinates[0]),
+        location_link: place.location_link,
+        sessions: toFormSessions(place.sessions ?? []),
+        description: place.description ?? "",
+      }));
+      notify("Filled in from Google Maps");
+    } catch (err) {
+      notify(`Couldn't fetch from link: ${(err as Error).message}`, "error");
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -108,11 +151,12 @@ export default function HotelForm({ hotel, onSaved }: Props) {
       email: form.email || null,
       description: form.description || null,
       location_link: form.location_link || null,
+      place_id: form.place_id || null,
       avatar: form.avatar || null,
       tags: form.tags,
       price_min: form.price_min || null,
       price_max: form.price_max || null,
-      hours: form.hours || null,
+      sessions: form.sessions,
       atmosphere: form.atmosphere || null,
       best_for: form.best_for || null,
       cuisines: list(form.cuisines),
@@ -210,7 +254,32 @@ export default function HotelForm({ hotel, onSaved }: Props) {
           {fieldError("address")}
         </div>
         {text("city", "City", { required: true })}
-        {text("location_link", "Google Maps link", { type: "url" })}
+        <div className="sm:col-span-2">
+          <label htmlFor="f-location_link" className="block text-sm font-semibold">
+            Google Maps link
+          </label>
+          <div className="mt-1 flex gap-2">
+            <input
+              id="f-location_link"
+              type="url"
+              className="field"
+              value={form.location_link}
+              onChange={(e) => set("location_link", e.target.value)}
+              aria-invalid={!!errors.location_link}
+              placeholder="https://maps.app.goo.gl/…"
+            />
+            <button
+              type="button"
+              className="btn btn-quiet shrink-0"
+              disabled={fetching || !form.location_link.trim()}
+              onClick={fetchFromLink}
+            >
+              {fetching ? "Fetching…" : "Fetch"}
+            </button>
+          </div>
+          {fieldError("location_link")}
+        </div>
+        {text("place_id", "Google place ID")}
         {text("lat", "Latitude", { inputMode: "decimal", placeholder: "8.5241" })}
         {text("lon", "Longitude", { inputMode: "decimal", placeholder: "76.9366" })}
         {errors.location && <div className="sm:col-span-2">{fieldError("location")}</div>}
@@ -219,7 +288,67 @@ export default function HotelForm({ hotel, onSaved }: Props) {
       <Group title="Details" help="Separate list items with commas.">
         {text("price_min", "Min price (₹)", { type: "number", min: 0, step: "0.01" })}
         {text("price_max", "Max price (₹)", { type: "number", min: 0, step: "0.01" })}
-        {text("hours", "Hours", { placeholder: "9 AM – 11 PM", wide: true })}
+        <div className="sm:col-span-2">
+          <span className="block text-sm font-semibold">Working hours</span>
+          {form.sessions.map((session, i) => {
+            const update = (patch: Partial<HotelSession>) =>
+              set("sessions", form.sessions.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+            return (
+              <div key={i} className="mt-1 flex items-center gap-2">
+                <select
+                  aria-label="Day"
+                  className="field"
+                  value={session.day}
+                  onChange={(e) => update({ day: Number(e.target.value) })}
+                >
+                  {DAYS.map((day, d) => (
+                    <option key={day} value={d}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="time"
+                  aria-label="Opens"
+                  className="field"
+                  required
+                  value={session.start_time}
+                  onChange={(e) => update({ start_time: e.target.value })}
+                />
+                <input
+                  type="time"
+                  aria-label="Closes"
+                  className="field"
+                  required
+                  value={session.end_time}
+                  onChange={(e) => update({ end_time: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="shrink-0 text-sm font-semibold text-muted hover:text-chilli"
+                  onClick={() => set("sessions", form.sessions.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            className="btn btn-quiet mt-2"
+            onClick={() =>
+              set("sessions", [
+                ...form.sessions,
+                { day: form.sessions.at(-1)?.day ?? 0, start_time: "", end_time: "" },
+              ])
+            }
+          >
+            Add session
+          </button>
+          {errors.sessions && (
+            <p className="mt-1 text-sm text-chilli">Each session needs a day, an opening and a closing time.</p>
+          )}
+        </div>
         {text("atmosphere", "Atmosphere", { placeholder: "Casual, family-friendly" })}
         {text("best_for", "Best for", { placeholder: "Breakfast" })}
         {text("cuisines", "Cuisines", { placeholder: "South Indian, Chinese", wide: true })}

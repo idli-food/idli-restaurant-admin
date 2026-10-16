@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 // Django routes end in "/", so keep trailing slashes instead of letting Next strip them.
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
+  allowedDevOrigins: ["admin.idli.dev"],
   async rewrites() {
     return [
       {
